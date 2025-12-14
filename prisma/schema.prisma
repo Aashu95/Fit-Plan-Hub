@@ -1,0 +1,100 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+}
+
+model Account {
+  id                String @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  user              User   @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      UserRole @default(USER)
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  createdPlans  FitnessPlan[]
+  subscriptions Subscription[]
+  follows       Follow[]       @relation("UserFollows")
+  followers     Follow[]       @relation("TrainerFollows")
+  accounts      Account[]
+  sessions      Session[]
+}
+
+model FitnessPlan {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  price       Float
+  duration    Int // in days
+  trainerId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  trainer       User           @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id        String   @id @default(cuid())
+  userId    String
+  planId    String
+  status    String   @default("active") // active, cancelled, expired
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan FitnessPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, planId])
+}
+
+model Follow {
+  id         String   @id @default(cuid())
+  followerId String // User who follows
+  trainerId  String // Trainer being followed
+  createdAt  DateTime @default(now())
+
+  // Relations
+  follower User @relation("UserFollows", fields: [followerId], references: [id], onDelete: Cascade)
+  trainer  User @relation("TrainerFollows", fields: [trainerId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, trainerId])
+}
+
+enum UserRole {
+  USER
+  TRAINER
+}
